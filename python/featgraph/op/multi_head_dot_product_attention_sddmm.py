@@ -58,7 +58,7 @@ def multi_head_dot_product_attention_sddmm(SrcFeat,
         ReshapedDstFeat = tvm.compute((num_head_partitions, num_feat_partitions, num_cols, num_heads_per_partition, feat_len_per_partition), \
                                        lambda ho, fo, nn, hi, fi: DstFeat[nn, ho*num_heads_per_partition + hi, fo*feat_len_per_partition + fi], \
                                        name='ReshapedDstFeat')
-        # TODO: also change the layout of Out?
+        # TODO: also transform the layout of Out to improve write locality?
         def edgefunc(eid, hid):  # eid: edge id, hid: head id
             return tvm.sum(ReshapedSrcFeat[hid // num_heads_per_partition, \
                                            k // feat_len_per_partition, \

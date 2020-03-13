@@ -39,8 +39,8 @@ class SDDMMbase():
             # This is smart; credit to Zihao
             self._edge_mapping = np.argsort(edge_id_list)
         else:
-            adj_row_indices = adj_scipy_coo.data
-            adj_col_indices = adj_scipy_coo.row
+            adj_row_indices = adj_scipy_coo.row
+            adj_col_indices = adj_scipy_coo.col
         self._adj_row_indices = adj_row_indices
         self._adj_col_indices = adj_col_indices
         # To be updated in register

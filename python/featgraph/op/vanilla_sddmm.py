@@ -79,7 +79,7 @@ def schedule_vanilla_sddmm_cuda_tree_reduce(Out, num_feat_partitions=1, num_cuda
     edge_iter_axis = Out.op.axis[0]
     block_idx, _ = s[Out.op].split(edge_iter_axis, nparts=num_cuda_blocks)
     s[Out.op].bind(block_idx, tvm.thread_axis("blockIdx.x"))
-    # pay attention: here is doing tree reduce
+    # Pay attention: here is doing tree reduce
     s[Out.op].bind(Out.op.reduce_axis[0], tvm.thread_axis("threadIdx.x"))
     return s
 

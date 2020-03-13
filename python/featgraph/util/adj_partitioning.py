@@ -34,11 +34,11 @@ def util_partition_adj_coo_2d(adj_scipy_coo, num_row_partitions, num_col_partiti
     adj_row_indices = adj_scipy_coo.row
     adj_col_indices = adj_scipy_coo.col
     nnz = adj_row_indices.shape[0]
-    assert adj_col_indices.shape[0] == nnz, "length of adj_row_indices and adj_col_indices does not match"
-    # give each edge an id to record the graph traversal order
+    assert adj_col_indices.shape[0] == nnz, "length of adj_row_indices and that of adj_col_indices do not match"
+    # Give each edge an id to record the graph traversal order
     adj_scipy_coo.data = np.arange(1, 1 + nnz, dtype='int32')
 
-    # coo matrix is not subscriptable; we need csr to do partitioning
+    # COO matrix is not subscriptable; we need CSR to do partitioning
     adj_scipy_csr = adj_scipy_coo.tocsr()
     edge_id_list_after_partition = np.zeros(shape=(nnz), dtype=adj_scipy_coo.data.dtype)
     adj_row_indices_after_partition = np.zeros(shape=(nnz), dtype=adj_row_indices.dtype)
