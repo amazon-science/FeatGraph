@@ -4,6 +4,59 @@ import numpy as np
 import copy
 
 
+def util_convert_csr_to_dds(adj_scipy_csr, num_col_partitions):
+    """Doing src vertex partitioning (column dimension) by converting csr to dds (dense-dense-sparse).
+
+    Parameters
+    ----------
+    adj_scipy_csr : scipy.sparse.csr_matrix
+        The input matrix to be partitioned
+
+    num_col_partitions : int
+        Number of partitions along the column dimension
+
+    Returns
+    -------
+    s1_pos : numpy.array, dtype is int32
+        1-D with shape [num_col_partitions * (num_rows + 1)]
+
+    s1_idx : numpy.array, dtype is int32
+        1-D with shape [nnz]
+
+    vals : numpy.array, dtype is float32
+        1-D with shape [nnz]
+    """
+    num_rows = adj_scipy_csr.shape[0]
+    num_cols = adj_scipy_csr.shape[1]
+    adj_data = adj_scipy_csr.data
+    adj_indices = adj_scipy_csr.indices
+    adj_indptr = adj_scipy_csr.indptr
+    d1_size = num_col_partitions
+    d2_size = adj_indptr.shape[0]
+
+    s1_pos = np.zeros(shape=(d1_size*d2_size), dtype=adj_indptr.dtype)
+    s1_idx = np.zeros(shape=adj_indices.shape, dtype=adj_indices.dtype)
+    vals = np.zeros(shape=adj_data.shape, dtype=adj_data.dtype)
+
+    counter = 0
+    num_cols_per_partition = (num_cols + num_col_partitions - 1) // num_col_partitions
+    for i in range(num_col_partitions):
+        if i == num_col_partitions - 1:
+            adj_partition_scipy_csr = adj_scipy_csr[:, (i*num_cols_per_partition)::]
+        else:
+            adj_partition_scipy_csr = adj_scipy_csr[:, (i*num_cols_per_partition):(i+1)*num_cols_per_partition]
+        nnz = adj_partition_scipy_csr.data.shape[0]
+        vals[counter:(counter+nnz)] = adj_partition_scipy_csr.data
+        s1_pos[i*d2_size:(i+1)*d2_size] = adj_partition_scipy_csr.indptr + counter
+        s1_idx[counter:(counter+nnz)] = adj_partition_scipy_csr.indices
+        counter += nnz
+
+    assert len(s1_idx) == counter
+    assert len(vals) == counter
+
+    return s1_pos, s1_idx, vals
+
+
 def util_partition_adj_coo_2d(adj_scipy_coo, num_row_partitions, num_col_partitions):
     """Doing 2D partitioning.
 
