@@ -43,6 +43,10 @@ class SDDMMbase():
             adj_col_indices = adj_scipy_coo.col
         self._adj_row_indices = adj_row_indices
         self._adj_col_indices = adj_col_indices
+        self._adj_row_indices_placeholder = tvm.placeholder(shape=self._adj_row_indices.shape, \
+            dtype=str(self._adj_row_indices.dtype), name='adj_row_indices_placeholder')
+        self._adj_col_indices_placeholder = tvm.placeholder(shape=self._adj_col_indices.shape, \
+            dtype=str(self._adj_col_indices.dtype), name='adj_col_indices_placeholder')
         # To be updated in register
         self._target = None
         self._ctx = None
@@ -62,7 +66,7 @@ class SDDMMbase():
         raise NotImplementedError("Please register target, ctx, compute_func, and schedule_func.")
 
     def build(self, input_placeholders, compute_args, schedule_args):
-        """Build tvm func; update self._func inplace.
+        """Build tvm func, update self._func inplace.
 
         Parameters
         ----------
@@ -75,18 +79,14 @@ class SDDMMbase():
         schedule_args : dict
             Arguments required for schedule_func, e.g., num_cuda_blocks
         """
-        Adj_row_indices_placeholder = tvm.placeholder(shape=self._adj_row_indices.shape, \
-            dtype=str(self._adj_row_indices.dtype), name='Adj_row_indices_placeholder')
-        Adj_col_indices_placeholder = tvm.placeholder(shape=self._adj_col_indices.shape, \
-            dtype=str(self._adj_col_indices.dtype), name='Adj_col_indices_placeholder')
-        Out_placeholder = self._compute_func(*input_placeholders, Adj_row_indices_placeholder, \
-            Adj_col_indices_placeholder, **compute_args)  # use ** to unpack dict into kwargs
-        s = self._schedule_func(Out_placeholder, **schedule_args)
-        self._func = tvm.build(s, [*input_placeholders, Adj_row_indices_placeholder, \
-            Adj_col_indices_placeholder, Out_placeholder], target=self._target)
+        out_placeholder = self._compute_func(*input_placeholders, self._adj_row_indices_placeholder, \
+            self._adj_col_indices_placeholder, **compute_args)  # use ** to unpack dict into kwargs
+        s = self._schedule_func(out_placeholder, **schedule_args)
+        self._func = tvm.build(s, [*input_placeholders, self._adj_row_indices_placeholder, \
+            self._adj_col_indices_placeholder, out_placeholder], target=self._target)
         self._adj_row_indices_tvm = tvm.nd.array(self._adj_row_indices, ctx=self._ctx)
         self._adj_col_indices_tvm = tvm.nd.array(self._adj_col_indices, ctx=self._ctx)
-        self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(Out_placeholder.shape), dtype=str(Out_placeholder.dtype)))
+        self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(out_placeholder.shape), dtype=str(out_placeholder.dtype)))
 
     def lower_to_ir(self, input_placeholders, compute_args, schedule_args):
         """Return the IR. This can be useful for debug.
@@ -102,23 +102,19 @@ class SDDMMbase():
         schedule_args : dict
             Arguments required for schedule_func, e.g., num_cuda_blocks
         """
-        Adj_row_indices_placeholder = tvm.placeholder(shape=self._adj_row_indices.shape, \
-            dtype=str(self._adj_row_indices.dtype), name='Adj_row_indices_placeholder')
-        Adj_col_indices_placeholder = tvm.placeholder(shape=self._adj_col_indices.shape, \
-            dtype=str(self._adj_col_indices.dtype), name='Adj_col_indices_placeholder')
-        Out_placeholder = self._compute_func(*input_placeholders, Adj_row_indices_placeholder, \
-            Adj_col_indices_placeholder, **compute_args)  # use ** to unpack dict into kwargs
-        s = self._schedule_func(Out_placeholder, **schedule_args)
-        ir = tvm.lower(s, [*input_placeholders, Adj_row_indices_placeholder, \
-            Adj_col_indices_placeholder, Out_placeholder], simple_mode=True)
+        out_placeholder = self._compute_func(*input_placeholders, self._adj_row_indices_placeholder, \
+            self._adj_col_indices_placeholder, **compute_args)  # use ** to unpack dict into kwargs
+        s = self._schedule_func(out_placeholder, **schedule_args)
+        ir = tvm.lower(s, [*input_placeholders, self._adj_row_indices_placeholder, \
+            self._adj_col_indices_placeholder, out_placeholder], simple_mode=True)
         return ir
 
-    def run(self, feat_tvm_ndarrays):
-        """Run the built func with the given inputs feat_tvm_ndarrays.
+    def run(self, input_tvm_ndarrays):
+        """Run the built func with the given inputs input_tvm_ndarrays.
 
         Parameters
         ----------
-        feat_tvm_ndarrays : list of tvm.ndarray
+        input_tvm_ndarrays : list of tvm.ndarray
             The required input tvm ndarrays other than adj (which has been created during self.build)
 
         Returns
@@ -126,7 +122,7 @@ class SDDMMbase():
         self.out_tvm: tvm.ndarray
             The output tvm ndarray
         """
-        self._func(*feat_tvm_ndarrays, self._adj_row_indices_tvm, self._adj_col_indices_tvm, self.out_tvm)
+        self._func(*input_tvm_ndarrays, self._adj_row_indices_tvm, self._adj_col_indices_tvm, self.out_tvm)
         return self.out_tvm
 
     @property
@@ -157,8 +153,8 @@ class VanillaSDDMMx86(SDDMMbase):
 
 
 class VanillaSDDMMcuda(SDDMMbase):
-    def __init__(self, adj_scipy, num_row_partitions=1, num_col_partitions=1):
-        super(VanillaSDDMMcuda, self).__init__(adj_scipy, num_row_partitions, num_col_partitions)
+    def __init__(self, adj_scipy):
+        super(VanillaSDDMMcuda, self).__init__(adj_scipy, num_row_partitions=1, num_col_partitions=1)
 
     def _register(self):
         pass
@@ -176,8 +172,8 @@ class MultiHeadSDDMMx86(SDDMMbase):
 
 
 class MultiHeadSDDMMcuda(SDDMMbase):
-    def __init__(self, adj_scipy, num_row_partitions=1, num_col_partitions=1):
-        super(MultiHeadSDDMMcuda, self).__init__(adj_scipy, num_row_partitions, num_col_partitions)
+    def __init__(self, adj_scipy):
+        super(MultiHeadSDDMMcuda, self).__init__(adj_scipy, num_row_partitions=1, num_col_partitions=1)
 
     def _register(self):
         pass

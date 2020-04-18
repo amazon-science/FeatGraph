@@ -50,8 +50,8 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
     dst_feat_np = np.random.random(get_const_tuple(DstFeat.shape)).astype('float32')
     src_feat_tvm = tvm.nd.array(src_feat_np, vanilla_sddmm_module.ctx)
     dst_feat_tvm = tvm.nd.array(dst_feat_np, vanilla_sddmm_module.ctx)
-    feat_tvm_ndarrays = [src_feat_tvm, dst_feat_tvm]
-    out_tvm = vanilla_sddmm_module.run(feat_tvm_ndarrays).asnumpy()
+    input_tvm_ndarrays = [src_feat_tvm, dst_feat_tvm]
+    out_tvm = vanilla_sddmm_module.run(input_tvm_ndarrays).asnumpy()
     # be careful here
     if target == 'x86':
         out_tvm = out_tvm[vanilla_sddmm_module.edge_mapping]
@@ -109,8 +109,8 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
     dst_feat_np = np.random.random(get_const_tuple(DstFeat.shape)).astype('float32')
     src_feat_tvm = tvm.nd.array(src_feat_np, multi_head_sddmm_module.ctx)
     dst_feat_tvm = tvm.nd.array(dst_feat_np, multi_head_sddmm_module.ctx)
-    feat_tvm_ndarrays = [src_feat_tvm, dst_feat_tvm]
-    out_tvm = multi_head_sddmm_module.run(feat_tvm_ndarrays).asnumpy()
+    input_tvm_ndarrays = [src_feat_tvm, dst_feat_tvm]
+    out_tvm = multi_head_sddmm_module.run(input_tvm_ndarrays).asnumpy()
     # be careful here
     if target == 'x86':
         out_tvm = out_tvm[multi_head_sddmm_module.edge_mapping]
