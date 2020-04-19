@@ -1,3 +1,4 @@
 from .vanilla_sddmm import vanilla_sddmm, schedule_vanilla_sddmm_x86
 from .multi_head_dot_product_attention_sddmm import multi_head_dot_product_attention_sddmm, \
     schedule_multi_head_dot_product_attention_sddmm_x86
+from .vanilla_spmm import vanilla_spmm, schedule_vanilla_spmm_x86

@@ -15,16 +15,16 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
     # doing 2D graph partitioning during initialization
     # note that 2D partitioning is mainly useful for CPU since it optimizes cache
     if target == 'x86':
-        adj_row_num_partition = 4
-        adj_col_num_partition = 4
+        num_row_partitions = 4
+        num_col_partitions = 4
         module = VanillaSDDMMx86
     elif target == 'cuda':
-        adj_row_num_partition = 1
-        adj_col_num_partition = 1
+        num_row_partitions = 1
+        num_col_partitions = 1
         module = VanillaSDDMMcuda
     else:
         raise RuntimeError("invalid target")
-    vanilla_sddmm_module = module(adj_scipy_coo, adj_row_num_partition, adj_col_num_partition)
+    vanilla_sddmm_module = module(adj_scipy_coo, num_row_partitions, num_col_partitions)
 
     # tvm func is built for a specific feat_len and num_feat_partitions
     feat_len = 128
@@ -70,16 +70,16 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
     # doing 2D graph partitioning during initialization
     # note that 2D partitioning is mainly useful for CPU since it optimizes cache
     if target == 'x86':
-        adj_row_num_partition = 4
-        adj_col_num_partition = 4
+        num_row_partitions = 4
+        num_col_partitions = 4
         module = MultiHeadSDDMMx86
     elif target == 'cuda':
-        adj_row_num_partition = 1
-        adj_col_num_partition = 1
+        num_row_partitions = 1
+        num_col_partitions = 1
         module = MultiHeadSDDMMcuda
     else:
         raise RuntimeError("invalid target")
-    multi_head_sddmm_module = module(adj_scipy_coo, adj_row_num_partition, adj_col_num_partition)
+    multi_head_sddmm_module = module(adj_scipy_coo, num_row_partitions, num_col_partitions)
 
     # tvm func is built for a specific num_heads, num_head_partitions, feat_len, num_feat_partitions
     num_heads = 16

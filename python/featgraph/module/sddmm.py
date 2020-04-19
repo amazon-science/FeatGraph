@@ -86,7 +86,8 @@ class SDDMMbase():
             self._adj_col_indices_placeholder, out_placeholder], target=self._target)
         self._adj_row_indices_tvm = tvm.nd.array(self._adj_row_indices, ctx=self._ctx)
         self._adj_col_indices_tvm = tvm.nd.array(self._adj_col_indices, ctx=self._ctx)
-        self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(out_placeholder.shape), dtype=str(out_placeholder.dtype)))
+        self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(out_placeholder.shape), \
+            dtype=str(out_placeholder.dtype)), ctx=self._ctx)
 
     def lower_to_ir(self, input_placeholders, compute_args, schedule_args):
         """Return the IR. This can be useful for debug.
