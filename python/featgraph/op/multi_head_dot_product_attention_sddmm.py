@@ -46,7 +46,7 @@ def multi_head_dot_product_attention_sddmm(SrcFeat,
 
     if num_feat_partitions == 1 and num_head_partitions == 1:
         def edgefunc(eid, hid):  # eid: edge id, hid: head id
-            return tvm.sum(SrcFeat[Adj_row_indices[eid], hid, k] * DstFeat[Adj_col_indices[eid], hid, k], axis=k)
+            return tvm.sum(SrcFeat[Adj_col_indices[eid], hid, k] * DstFeat[Adj_row_indices[eid], hid, k], axis=k)
     else:
         num_heads_per_partition = num_heads // num_head_partitions  # we assume num_heads % num_head_partitions = 0
         feat_len_per_partition = feat_len // num_feat_partitions  # we assume feat_len % num_feat_partitions = 0
@@ -62,12 +62,12 @@ def multi_head_dot_product_attention_sddmm(SrcFeat,
         def edgefunc(eid, hid):  # eid: edge id, hid: head id
             return tvm.sum(ReshapedSrcFeat[hid // num_heads_per_partition, \
                                            k // feat_len_per_partition, \
-                                           Adj_row_indices[eid], \
+                                           Adj_col_indices[eid], \
                                            hid % num_heads_per_partition, \
                                            k % feat_len_per_partition] \
                            * ReshapedDstFeat[hid // num_heads_per_partition, \
                                              k // feat_len_per_partition, \
-                                             Adj_col_indices[eid], \
+                                             Adj_row_indices[eid], \
                                              hid % num_heads_per_partition, \
                                              k % feat_len_per_partition], axis=k)
 

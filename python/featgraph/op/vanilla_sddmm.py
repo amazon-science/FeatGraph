@@ -43,7 +43,7 @@ def vanilla_sddmm(SrcFeat,
 
     if num_feat_partitions == 1:
         def edgefunc(eid):  # eid: edge id
-            return tvm.sum(SrcFeat[Adj_row_indices[eid], k] * DstFeat[Adj_col_indices[eid], k], axis=k)
+            return tvm.sum(SrcFeat[Adj_col_indices[eid], k] * DstFeat[Adj_row_indices[eid], k], axis=k)
     else:
         feat_len_per_partition = feat_len // num_feat_partitions  # we assume feat_len % num_feat_partitions = 0
         num_rows = get_const_tuple(SrcFeat.shape)[0]
@@ -55,8 +55,8 @@ def vanilla_sddmm(SrcFeat,
                                        lambda fo, nn, fi: DstFeat[nn, fo*feat_len_per_partition + fi], \
                                        name='ReshapedDstFeat')
         def edgefunc(eid):  # eid: edge id
-            return tvm.sum(ReshapedSrcFeat[k // feat_len_per_partition, Adj_row_indices[eid], k % feat_len_per_partition] \
-                           * ReshapedDstFeat[k // feat_len_per_partition, Adj_col_indices[eid], k % feat_len_per_partition], axis=k)
+            return tvm.sum(ReshapedSrcFeat[k // feat_len_per_partition, Adj_col_indices[eid], k % feat_len_per_partition] \
+                           * ReshapedDstFeat[k // feat_len_per_partition, Adj_row_indices[eid], k % feat_len_per_partition], axis=k)
 
     Out = tvm.compute(oshape, edgefunc, name='vanilla_sddmm')
     return Out

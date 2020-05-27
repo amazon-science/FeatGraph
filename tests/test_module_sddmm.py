@@ -28,8 +28,8 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
 
     # tvm func is built for a specific feat_len and num_feat_partitions
     feat_len = 128
-    SrcFeat = tvm.placeholder((num_rows, feat_len))
-    DstFeat = tvm.placeholder((num_cols, feat_len))
+    SrcFeat = tvm.placeholder((num_cols, feat_len))
+    DstFeat = tvm.placeholder((num_rows, feat_len))
     input_placeholders = [SrcFeat, DstFeat]
     if target == 'x86':
         num_feat_partitions = 4
@@ -57,8 +57,8 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
         out_tvm = out_tvm[vanilla_sddmm_module.edge_mapping]
 
     # check correctness against scipy
-    lhs = src_feat_np[adj_scipy_coo.row]
-    rhs = dst_feat_np[adj_scipy_coo.col]
+    lhs = src_feat_np[adj_scipy_coo.col]
+    rhs = dst_feat_np[adj_scipy_coo.row]
     out_scipy = (lhs * rhs).sum(axis=-1)
     np.testing.assert_allclose(out_scipy, out_tvm, rtol=1e-4, atol=1e-4)
 
@@ -84,8 +84,8 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
     # tvm func is built for a specific num_heads, num_head_partitions, feat_len, num_feat_partitions
     num_heads = 16
     feat_len = 64
-    SrcFeat = tvm.placeholder((num_rows, num_heads, feat_len))
-    DstFeat = tvm.placeholder((num_cols, num_heads, feat_len))
+    SrcFeat = tvm.placeholder((num_cols, num_heads, feat_len))
+    DstFeat = tvm.placeholder((num_rows, num_heads, feat_len))
     input_placeholders = [SrcFeat, DstFeat]
     if target == 'x86':
         num_head_partitions = 2
@@ -116,8 +116,8 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
         out_tvm = out_tvm[multi_head_sddmm_module.edge_mapping]
 
     # check correctness against scipy
-    lhs = src_feat_np[adj_scipy_coo.row]
-    rhs = dst_feat_np[adj_scipy_coo.col]
+    lhs = src_feat_np[adj_scipy_coo.col]
+    rhs = dst_feat_np[adj_scipy_coo.row]
     out_scipy = (lhs * rhs).sum(axis=-1)
     np.testing.assert_allclose(out_scipy, out_tvm, rtol=1e-4, atol=1e-4)
 
