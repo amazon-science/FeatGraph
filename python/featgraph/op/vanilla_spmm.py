@@ -61,7 +61,7 @@ def vanilla_spmm_csr_x86(SrcFeat,
     return Out
 
 
-def schedule_vanilla_spmm_csr_x86(Out, num_feat_partitions=1):
+def schedule_vanilla_spmm_csr_x86(Out):
     s = tvm.create_schedule([Out.op])
 
     ReshapedOut = Out.op.input_tensors[0]
@@ -81,7 +81,7 @@ def schedule_vanilla_spmm_csr_x86(Out, num_feat_partitions=1):
 
 def vanilla_spmm_csr_cuda(SrcFeat,
                           Adj_indptr,
-                          dj_indices,
+                          Adj_indices,
                           Adj_vals):
     """Compute sparse-dense matrix multiplication of Adj and SrcFeat on cuda.
     This implementation does not transform the layout of SrcFeat.
@@ -124,8 +124,21 @@ def vanilla_spmm_csr_cuda(SrcFeat,
     return Out
 
 
-def schedule_vanilla_spmm_csr_cuda(Out):
-    pass
+def schedule_vanilla_spmm_csr_cuda(Out, num_threads_per_cuda_block=None):
+    s = tvm.create_schedule([Out.op])
+    num_rows = Out.shape[0].value
+    num_cuda_blocks = num_rows
+    if num_threads_per_cuda_block is None:
+        feat_len = Out.shape[1].value
+        num_threads_per_cuda_block = feat_len
+    row_axis = Out.op.axis[0]
+    feat_axis = Out.op.axis[1]
+    feat_outer, feat_inner = s[Out.op].split(feat_axis, factor=num_threads_per_cuda_block)
+    s[Out.op].reorder(feat_outer, row_axis, feat_inner)
+    s[Out.op].bind(feat_outer, tvm.thread_axis("blockIdx.y"))
+    s[Out.op].bind(row_axis, tvm.thread_axis("blockIdx.x"))
+    s[Out.op].bind(feat_inner, tvm.thread_axis("threadIdx.x"))
+    return s
 
 
 def vanilla_spmm_dds_x86(SrcFeat,
@@ -206,7 +219,7 @@ def vanilla_spmm_dds_x86(SrcFeat,
     return Out
 
 
-def schedule_vanilla_spmm_dds_x86(Out, num_feat_partitions=1):
+def schedule_vanilla_spmm_dds_x86(Out):
     s = tvm.create_schedule([Out.op])
 
     ReshapedOut = Out.op.input_tensors[0]

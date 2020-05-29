@@ -17,14 +17,9 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
     if target == 'x86':
         num_row_partitions = 4
         num_col_partitions = 4
-        module = VanillaSDDMMx86
+        vanilla_sddmm_module = VanillaSDDMMx86(adj_scipy_coo, num_row_partitions, num_col_partitions)
     elif target == 'cuda':
-        num_row_partitions = 1
-        num_col_partitions = 1
-        module = VanillaSDDMMcuda
-    else:
-        raise RuntimeError("invalid target")
-    vanilla_sddmm_module = module(adj_scipy_coo, num_row_partitions, num_col_partitions)
+        vanilla_sddmm_module = VanillaSDDMMcuda(adj_scipy_coo)
 
     # tvm func is built for a specific feat_len and num_feat_partitions
     feat_len = 128
@@ -39,10 +34,7 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
         num_cuda_blocks = 4096
         num_threads_per_cuda_block = 64
         compute_args = {}
-        schedule_args = {'num_cuda_blocks': num_cuda_blocks,
-                         'num_threads_per_cuda_block': num_threads_per_cuda_block}
-    else:
-        raise RuntimeError("invalid target")
+        schedule_args = {'num_cuda_blocks': num_cuda_blocks}
     vanilla_sddmm_module.build(input_placeholders, compute_args, schedule_args)
 
     # run
@@ -72,14 +64,9 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
     if target == 'x86':
         num_row_partitions = 4
         num_col_partitions = 4
-        module = MultiHeadSDDMMx86
+        multi_head_sddmm_module = MultiHeadSDDMMx86(adj_scipy_coo, num_row_partitions, num_col_partitions)
     elif target == 'cuda':
-        num_row_partitions = 1
-        num_col_partitions = 1
-        module = MultiHeadSDDMMcuda
-    else:
-        raise RuntimeError("invalid target")
-    multi_head_sddmm_module = module(adj_scipy_coo, num_row_partitions, num_col_partitions)
+        multi_head_sddmm_module = MultiHeadSDDMMcuda(adj_scipy_coo)
 
     # tvm func is built for a specific num_heads, num_head_partitions, feat_len, num_feat_partitions
     num_heads = 16
@@ -100,8 +87,6 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
         compute_args = {}
         schedule_args = {'num_cuda_blocks': num_cuda_blocks,
                          'num_threads_per_cuda_block': num_threads_per_cuda_block}
-    else:
-        raise RuntimeError("invalid target")
     multi_head_sddmm_module.build(input_placeholders, compute_args, schedule_args)
 
     # run
@@ -125,4 +110,6 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
 if __name__ == '__main__':
     adj_scipy_coo = scipy.sparse.random(127, 255, density=0.1, format='coo').astype('int32')
     test_vanilla_sddmm(adj_scipy_coo, 'x86')
+    test_vanilla_sddmm(adj_scipy_coo, 'cuda')
     test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, 'x86')
+    # test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, 'cuda')
