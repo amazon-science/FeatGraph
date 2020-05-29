@@ -3,7 +3,9 @@ import tvm
 from topi.util import get_const_tuple
 
 from ..util import util_convert_csr_to_dds
-from ..op import vanilla_spmm, schedule_vanilla_spmm_x86
+from ..op import vanilla_spmm_csr_x86, schedule_vanilla_spmm_csr_x86, \
+    vanilla_spmm_dds_x86, schedule_vanilla_spmm_dds_x86, \
+    vanilla_spmm_csr_cuda, schedule_vanilla_spmm_csr_cuda
 
 
 class SpMMbase():
@@ -26,9 +28,16 @@ class SpMMbase():
             adj_scipy_csr = adj_scipy
         self._num_rows = adj_scipy_csr.shape[0]
         self._num_cols = adj_scipy_csr.shape[1]
-        # 1D graph partitioning
+        assert num_col_partitions >= 1, "num_col_partitions should be larger than or equal to 1"
         self._num_col_partitions = num_col_partitions
-        if self._num_col_partitions != 1:
+        # To be updated in self._register
+        self._target = None
+        self._ctx = None
+        self._compute_func = None
+        self._schedule_func = None
+        self._register()
+        # 1D graph partitioning
+        if self._num_col_partitions > 1:
             adj_s1_pos, adj_s1_idx, adj_vals = self._preprocess_adj(adj_scipy_csr, self._num_col_partitions)
             self._adj_s1_pos = adj_s1_pos
             self._adj_s1_idx = adj_s1_idx
@@ -39,6 +48,9 @@ class SpMMbase():
                 dtype=str(self._adj_s1_idx.dtype), name='adj_s1_idx_placeholder')
             self._adj_vals_placeholder = tvm.placeholder(shape=self._adj_vals.shape, \
                 dtype=str(self._adj_vals.dtype), name='adj_vals_placeholder')
+            self._adj_s1_pos_tvm = tvm.nd.array(self._adj_s1_pos, ctx=self._ctx)
+            self._adj_s1_idx_tvm = tvm.nd.array(self._adj_s1_idx, ctx=self._ctx)
+            self._adj_vals_tvm = tvm.nd.array(self._adj_vals, ctx=self._ctx)
             self._adj_d1_size = self._num_col_partitions
             self._adj_d2_size = self._num_rows + 1
         else:
@@ -51,22 +63,12 @@ class SpMMbase():
                 dtype=str(self._adj_indices.dtype), name='adj_indices_placeholder')
             self._adj_vals_placeholder = tvm.placeholder(shape=self._adj_vals.shape, \
                 dtype=str(self._adj_vals.dtype), name='adj_vals_placeholder')
-        # To be updated in register
-        self._target = None
-        self._ctx = None
-        self._compute_func = None
-        self._schedule_func = None
-        self._register()
-        # To be updated in build
-        if self._num_col_partitions != 1:
-            self._adj_s1_pos_tvm = None
-            self._adj_s1_idx_tvm = None
-            self._adj_vals_tvm = None
-        else:
-            self._adj_indptr_tvm = None
-            self._adj_indices_tvm = None
-            self._adj_vals_tvm = None
+            self._adj_indptr_tvm = tvm.nd.array(self._adj_indptr, ctx=self._ctx)
+            self._adj_indices_tvm = tvm.nd.array(self._adj_indices, ctx=self._ctx)
+            self._adj_vals_tvm = tvm.nd.array(self._adj_vals, ctx=self._ctx)
+        # To be updated in self.build
         self._func = None
+        # To be updated in self.run
         self.out_tvm = None
 
     def _preprocess_adj(self, adj_scipy_csr, num_col_partitions=1):
@@ -89,20 +91,23 @@ class SpMMbase():
         schedule_args : dict
             Arguments required for schedule_func, e.g., num_cuda_blocks
         """
-        if self._num_col_partitions != 1:
+        if self._num_col_partitions > 1:
             out_placeholder = self._compute_func(*input_placeholders, self._adj_s1_pos_placeholder, \
                 self._adj_s1_idx_placeholder, self._adj_vals_placeholder,
                 self._adj_d1_size, self._adj_d2_size, **compute_args)  # use ** to unpack dict into kwargs
             s = self._schedule_func(out_placeholder, **schedule_args)
             self._func = tvm.build(s, [*input_placeholders, self._adj_s1_pos_placeholder, \
                 self._adj_s1_idx_placeholder, self._adj_vals_placeholder, out_placeholder], target=self._target)
-            self._adj_s1_pos_tvm = tvm.nd.array(self._adj_s1_pos, ctx=self._ctx)
-            self._adj_s1_idx_tvm = tvm.nd.array(self._adj_s1_idx, ctx=self._ctx)
-            self._adj_vals_tvm = tvm.nd.array(self._adj_vals, ctx=self._ctx)
             self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(out_placeholder.shape), \
                 dtype=str(out_placeholder.dtype)), ctx=self._ctx)
         else:
-            pass
+            out_placeholder = self._compute_func(*input_placeholders, self._adj_indptr_placeholder, \
+                self._adj_indices_placeholder, self._adj_vals_placeholder, **compute_args)
+            s = self._schedule_func(out_placeholder, **schedule_args)
+            self._func = tvm.build(s, [*input_placeholders, self._adj_indptr_placeholder, \
+                self._adj_indices_placeholder, self._adj_vals_placeholder, out_placeholder], target=self._target)
+            self.out_tvm = tvm.nd.array(np.zeros(shape=get_const_tuple(out_placeholder.shape), \
+                dtype=str(out_placeholder.dtype)), ctx=self._ctx)
 
     def lower_to_ir(self, input_placeholders, compute_args, schedule_args):
         """Return the IR. This can be useful for debug.
@@ -118,7 +123,7 @@ class SpMMbase():
         schedule_args : dict
             Arguments required for schedule_func, e.g., num_cuda_blocks
         """
-        if self._num_col_partitions != 1:
+        if self._num_col_partitions > 1:
             out_placeholder = self._compute_func(*input_placeholders, self._adj_s1_pos_placeholder, \
                 self._adj_s1_idx_placeholder, self._adj_vals_placeholder,
                 self._adj_d1_size, self._adj_d2_size, **compute_args)
@@ -126,7 +131,11 @@ class SpMMbase():
             ir = tvm.lower(s, [*input_placeholders, self._adj_s1_pos_placeholder, \
                 self._adj_s1_idx_placeholder, self._adj_vals_placeholder, out_placeholder], simple_mode=True)
         else:
-            pass
+            out_placeholder = self._compute_func(*input_placeholders, self._adj_indptr_placeholder, \
+                self._adj_indices_placeholder, self._adj_vals_placeholder, **compute_args)
+            s = self._schedule_func(out_placeholder, **schedule_args)
+            ir = tvm.lower(s, [*input_placeholders, self._adj_indptr_placeholder, \
+                self._adj_indices_placeholder, self._adj_vals_placeholder, out_placeholder], simple_mode=True)
         return ir
 
     def run(self, input_tvm_ndarrays):
@@ -142,11 +151,12 @@ class SpMMbase():
         self.out_tvm: tvm.ndarray
             The output tvm ndarray
         """
-        if self._num_col_partitions != 1:
+        if self._num_col_partitions > 1:
             self._func(*input_tvm_ndarrays, self._adj_s1_pos_tvm, self._adj_s1_idx_tvm, \
                 self._adj_vals_tvm, self.out_tvm)
         else:
-            pass
+            self._func(*input_tvm_ndarrays, self._adj_indptr_tvm, self._adj_indices_tvm, \
+                self._adj_vals_tvm, self.out_tvm)
         return self.out_tvm
 
     @property
@@ -165,8 +175,12 @@ class VanillaSpMMx86(SpMMbase):
     def _register(self):
         self._target = 'llvm'
         self._ctx = tvm.cpu(0)
-        self._compute_func = vanilla_spmm
-        self._schedule_func = schedule_vanilla_spmm_x86
+        if self._num_col_partitions > 1:
+            self._compute_func = vanilla_spmm_dds_x86
+            self._schedule_func = schedule_vanilla_spmm_dds_x86
+        else:
+            self._compute_func = vanilla_spmm_csr_x86
+            self._schedule_func = schedule_vanilla_spmm_csr_x86
 
 
 class VanillaSpMMcuda(SpMMbase):
@@ -174,4 +188,7 @@ class VanillaSpMMcuda(SpMMbase):
         super(VanillaSpMMcuda, self).__init__(adj_scipy, num_col_partitions=1)
 
     def _register(self):
-        pass
+        self._target = 'cuda'
+        self._ctx = tvm.gpu(0)
+        self._compute_func = vanilla_spmm_csr_cuda
+        self._schedule_func = schedule_vanilla_spmm_csr_cuda
