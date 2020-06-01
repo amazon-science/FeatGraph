@@ -22,13 +22,9 @@ def bench_vanilla_spmm_x86(adj_scipy_csr):
         src_feat_np = np.random.random(get_const_tuple(SrcFeat.shape)).astype('float32')
         src_feat_tvm = tvm.nd.array(src_feat_np, vanilla_spmm_module.ctx)
         input_tvm_ndarrays = [src_feat_tvm]
-        out_tvm = vanilla_spmm_module.run(input_tvm_ndarrays).asnumpy()
         num_runs = 2
-        start = time.time()
-        for i in range(num_runs):
-            out_tvm = vanilla_spmm_module.run(input_tvm_ndarrays).asnumpy()
-        end = time.time()
-        print("average time of {} runs: {} sec".format(num_runs, (end - start) / num_runs))
+        tcost = vanilla_spmm_module.measure_average_time(input_tvm_ndarrays, num_runs)
+        print("average time of {} runs: {} sec".format(num_runs, tcost))
 
     feat_len = 128
     for num_col_partitions in [1, 2, 4]:
@@ -52,13 +48,9 @@ def bench_vanilla_spmm_cuda(adj_scipy_csr):
         src_feat_np = np.random.random(get_const_tuple(SrcFeat.shape)).astype('float32')
         src_feat_tvm = tvm.nd.array(src_feat_np, vanilla_spmm_module.ctx)
         input_tvm_ndarrays = [src_feat_tvm]
-        out_tvm = vanilla_spmm_module.run(input_tvm_ndarrays).asnumpy()
         num_runs = 2
-        start = time.time()
-        for i in range(num_runs):
-            out_tvm = vanilla_spmm_module.run(input_tvm_ndarrays).asnumpy()
-        end = time.time()
-        print("average time of {} runs: {} sec".format(num_runs, (end - start) / num_runs))
+        tcost = vanilla_spmm_module.measure_average_time(input_tvm_ndarrays, num_runs)
+        print("average time of {} runs: {} sec".format(num_runs, tcost))
 
     feat_len = 256
     for num_threads_per_cuda_block in [16, 32, 64, 128]:
@@ -67,6 +59,6 @@ def bench_vanilla_spmm_cuda(adj_scipy_csr):
 
 
 if __name__ == '__main__':
-    adj_scipy_csr = scipy.sparse.load_npz("/home/yh457/data/sparse_matrix_graph/reddit_200K_115M_csr_float32.npz")
+    adj_scipy_csr = scipy.sparse.load_npz("/home/ubuntu/efs/data/sparse_matrix_graph/reddit_200K_115M_csr_float32.npz")
     bench_vanilla_spmm_x86(adj_scipy_csr)
     bench_vanilla_spmm_cuda(adj_scipy_csr)

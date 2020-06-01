@@ -159,6 +159,31 @@ class SpMMbase():
                 self._adj_vals_tvm, self.out_tvm)
         return self.out_tvm
 
+    def measure_average_time(self, input_tvm_ndarrays, num_runs):
+        """Measure the run time of the built module using tvm time_evaluator.
+
+        Parameters
+        ----------
+        input_tvm_ndarrays : list of tvm.ndarray
+            The required input tvm ndarrays other than adj (which has been created during self.build)
+
+        int : num_runs
+            The number of runs
+
+        Returns
+        -------
+        tcost: float32
+            The average run time
+        """
+        timer = self._func.time_evaluator(self._func.entry_name, ctx=self._ctx, number=num_runs)
+        if self._num_col_partitions > 1:
+            tcost = timer(*input_tvm_ndarrays, self._adj_s1_pos_tvm, \
+                self._adj_s1_idx_tvm, self._adj_vals_tvm, self.out_tvm).mean
+        else:
+            tcost = timer(*input_tvm_ndarrays, self._adj_indptr_tvm, \
+                self._adj_indices_tvm, self._adj_vals_tvm, self.out_tvm).mean
+        return tcost
+
     @property
     def ctx(self):
         return self._ctx
