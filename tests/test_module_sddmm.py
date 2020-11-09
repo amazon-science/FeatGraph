@@ -3,7 +3,8 @@ import scipy.sparse
 import numpy as np
 import time
 import tvm
-from topi.util import get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 from featgraph.module import VanillaSDDMMx86, VanillaSDDMMcuda, MultiHeadSDDMMx86, MultiHeadSDDMMcuda
 
@@ -23,16 +24,15 @@ def test_vanilla_sddmm(adj_scipy_coo, target):
 
     # tvm func is built for a specific feat_len and num_feat_partitions
     feat_len = 128
-    SrcFeat = tvm.placeholder((num_cols, feat_len))
-    DstFeat = tvm.placeholder((num_rows, feat_len))
+    SrcFeat = te.placeholder((num_cols, feat_len))
+    DstFeat = te.placeholder((num_rows, feat_len))
     input_placeholders = [SrcFeat, DstFeat]
     if target == 'x86':
         num_feat_partitions = 4
         compute_args = {'num_feat_partitions': num_feat_partitions}
         schedule_args = {'num_feat_partitions': num_feat_partitions}
     elif target == 'cuda':
-        num_cuda_blocks = 4096
-        num_threads_per_cuda_block = 64
+        num_cuda_blocks = 256
         compute_args = {}
         schedule_args = {'num_cuda_blocks': num_cuda_blocks}
     vanilla_sddmm_module.build(input_placeholders, compute_args, schedule_args)
@@ -71,8 +71,8 @@ def test_multi_head_dot_product_attention_sddmm(adj_scipy_coo, target):
     # tvm func is built for a specific num_heads, num_head_partitions, feat_len, num_feat_partitions
     num_heads = 16
     feat_len = 64
-    SrcFeat = tvm.placeholder((num_cols, num_heads, feat_len))
-    DstFeat = tvm.placeholder((num_rows, num_heads, feat_len))
+    SrcFeat = te.placeholder((num_cols, num_heads, feat_len))
+    DstFeat = te.placeholder((num_rows, num_heads, feat_len))
     input_placeholders = [SrcFeat, DstFeat]
     if target == 'x86':
         num_head_partitions = 2

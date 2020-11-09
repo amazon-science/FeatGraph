@@ -1,5 +1,6 @@
 import tvm
-from topi.util import get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 
 def vanilla_spmm_csr_x86(SrcFeat,
@@ -12,16 +13,16 @@ def vanilla_spmm_csr_x86(SrcFeat,
 
     Parameters
     ----------
-    SrcFeat : tvm.Tensor
+    SrcFeat : tvm.te.Tensor
         2-D with shape [num_src_vertices, feat_len]
 
-    Adj_indptr : tvm.Tensor
+    Adj_indptr : tvm.te.Tensor
         1-D with shape [num_dst_vertices + 1] (CSR)
 
-    Adj_indices : tvm.Tensor
+    Adj_indices : tvm.te.Tensor
         1-D with shape [nnz] (CSR)
 
-    Adj_vals : tvm.Tensor
+    Adj_vals : tvm.te.Tensor
         1-D with shape [nnz] (CSR)
 
     num_feat_partitions : int
@@ -29,7 +30,7 @@ def vanilla_spmm_csr_x86(SrcFeat,
 
     Returns
     -------
-    Out : tvm.Tensor
+    Out : tvm.te.Tensor
         2-D with shape [num_dst_vertices, feat_len]
     """
     assert Adj_indices.shape[0].value == Adj_vals.shape[0].value
@@ -39,22 +40,22 @@ def vanilla_spmm_csr_x86(SrcFeat,
 
     feat_len_per_partition = feat_len // num_feat_partitions  # we assume feat_len % num_feat_partitions = 0
 
-    ReshapedSrcFeat = tvm.compute((num_feat_partitions, num_src_vertices, feat_len_per_partition), \
+    ReshapedSrcFeat = te.compute((num_feat_partitions, num_src_vertices, feat_len_per_partition), \
         lambda fo, nn, fi: SrcFeat[nn, fo * feat_len_per_partition + fi], name='ReshapedSrcFeat')
 
     def msgfunc(fo, row, fi):
         row_start = Adj_indptr[row]
         row_end = Adj_indptr[row + 1]
         row_num_elems = row_end - row_start
-        elem_idx = tvm.reduce_axis((0, row_num_elems), name="elem_idx")
+        elem_idx = te.reduce_axis((0, row_num_elems), name="elem_idx")
         adj_val = Adj_vals[row_start + elem_idx]
         feat_val = ReshapedSrcFeat[fo, Adj_indices[row_start + elem_idx], fi]
-        return tvm.sum(adj_val * feat_val, axis=elem_idx)
+        return te.sum(adj_val * feat_val, axis=elem_idx)
 
-    ReshapedOut = tvm.compute((num_feat_partitions, num_dst_vertices, feat_len_per_partition),
+    ReshapedOut = te.compute((num_feat_partitions, num_dst_vertices, feat_len_per_partition),
         msgfunc, name='ReshapedOut')
 
-    Out = tvm.compute(oshape, \
+    Out = te.compute(oshape, \
         lambda nn, ff: ReshapedOut[ff // feat_len_per_partition, nn, ff % feat_len_per_partition], \
         name='Out')
 
@@ -62,7 +63,7 @@ def vanilla_spmm_csr_x86(SrcFeat,
 
 
 def schedule_vanilla_spmm_csr_x86(Out):
-    s = tvm.create_schedule([Out.op])
+    s = te.create_schedule([Out.op])
 
     ReshapedOut = Out.op.input_tensors[0]
     ReshapedSrcFeat = ReshapedOut.op.input_tensors[3]
@@ -88,21 +89,21 @@ def vanilla_spmm_csr_cuda(SrcFeat,
 
     Parameters
     ----------
-    SrcFeat : tvm.Tensor
+    SrcFeat : tvm.te.Tensor
         2-D with shape [num_src_vertices, feat_len]
 
-    Adj_indptr : tvm.Tensor
+    Adj_indptr : tvm.te.Tensor
         1-D with shape [num_dst_vertices + 1] (CSR)
 
-    Adj_indices : tvm.Tensor
+    Adj_indices : tvm.te.Tensor
         1-D with shape [nnz] (CSR)
 
-    Adj_vals : tvm.Tensor
+    Adj_vals : tvm.te.Tensor
         1-D with shape [nnz] (CSR)
 
     Returns
     -------
-    Out : tvm.Tensor
+    Out : tvm.te.Tensor
         2-D with shape [num_dst_vertices, feat_len]
     """
     assert Adj_indices.shape[0].value == Adj_vals.shape[0].value
@@ -114,12 +115,12 @@ def vanilla_spmm_csr_cuda(SrcFeat,
         row_start = Adj_indptr[row]
         row_end = Adj_indptr[row + 1]
         row_num_elems = row_end - row_start
-        elem_idx = tvm.reduce_axis((0, row_num_elems), name="elem_idx")
+        elem_idx = te.reduce_axis((0, row_num_elems), name="elem_idx")
         adj_val = Adj_vals[row_start + elem_idx]
         feat_val = SrcFeat[Adj_indices[row_start + elem_idx], ff]
-        return tvm.sum(adj_val * feat_val, axis=elem_idx)
+        return te.sum(adj_val * feat_val, axis=elem_idx)
 
-    Out = tvm.compute(oshape, msgfunc, name='Out')
+    Out = te.compute(oshape, msgfunc, name='Out')
 
     return Out
 
@@ -127,7 +128,7 @@ def vanilla_spmm_csr_cuda(SrcFeat,
 def schedule_vanilla_spmm_csr_cuda(Out,
                                    num_cuda_blocks=None,
                                    num_threads_per_cuda_block=None):
-    s = tvm.create_schedule([Out.op])
+    s = te.create_schedule([Out.op])
     num_rows = Out.shape[0].value
     feat_len = Out.shape[1].value
     if num_cuda_blocks is None:
@@ -139,9 +140,9 @@ def schedule_vanilla_spmm_csr_cuda(Out,
     row_outer, row_inner = s[Out.op].split(row_axis, nparts=num_cuda_blocks)
     feat_outer, feat_inner = s[Out.op].split(feat_axis, factor=num_threads_per_cuda_block)
     s[Out.op].reorder(feat_outer, row_outer, feat_inner, row_inner)
-    s[Out.op].bind(feat_outer, tvm.thread_axis("blockIdx.y"))
-    s[Out.op].bind(row_outer, tvm.thread_axis("blockIdx.x"))
-    s[Out.op].bind(feat_inner, tvm.thread_axis("threadIdx.x"))
+    s[Out.op].bind(feat_outer, te.thread_axis("blockIdx.y"))
+    s[Out.op].bind(row_outer, te.thread_axis("blockIdx.x"))
+    s[Out.op].bind(feat_inner, te.thread_axis("threadIdx.x"))
     return s
 
 
@@ -158,16 +159,16 @@ def vanilla_spmm_dds_x86(SrcFeat,
 
     Parameters
     ----------
-    SrcFeat : tvm.Tensor
+    SrcFeat : tvm.te.Tensor
         2-D with shape [num_src_vertices, feat_len]
 
-    Adj_s1_pos : tvm.Tensor
+    Adj_s1_pos : tvm.te.Tensor
         1-D with shape [d1_size * d2_size] (DDS)
 
-    Adj_s1_idx : tvm.Tensor
+    Adj_s1_idx : tvm.te.Tensor
         1-D with shape [nnz] (DDS)
 
-    Adj_vals : tvm.Tensor
+    Adj_vals : tvm.te.Tensor
         1-D with shape [nnz] (DDS)
 
     d1_size : int
@@ -181,7 +182,7 @@ def vanilla_spmm_dds_x86(SrcFeat,
 
     Returns
     -------
-    Out : tvm.Tensor
+    Out : tvm.te.Tensor
         2-D with shape [num_dst_vertices, feat_len]
     """
     assert d1_size * d2_size == Adj_s1_pos.shape[0].value
@@ -194,29 +195,29 @@ def vanilla_spmm_dds_x86(SrcFeat,
     feat_len_per_partition = feat_len // num_feat_partitions  # we assume feat_len % num_feat_partitions = 0
     num_src_vertices_per_partition = (num_src_vertices + num_src_vertex_partitions - 1) // num_src_vertex_partitions
 
-    ReshapedSrcFeat = tvm.compute((num_feat_partitions, num_src_vertices, feat_len_per_partition), \
+    ReshapedSrcFeat = te.compute((num_feat_partitions, num_src_vertices, feat_len_per_partition), \
         lambda fo, nn, fi: SrcFeat[nn, fo * feat_len_per_partition + fi], name='ReshapedSrcFeat')
 
     def msgfunc(fo, src_vertex_partition_idx, row, fi):
         row_start = Adj_s1_pos[src_vertex_partition_idx * d2_size + row]
         row_end = Adj_s1_pos[src_vertex_partition_idx * d2_size + row + 1]
         row_num_elems = row_end - row_start
-        elem_idx = tvm.reduce_axis((0, row_num_elems), name="elem_idx")
+        elem_idx = te.reduce_axis((0, row_num_elems), name="elem_idx")
         adj_val = Adj_vals[row_start + elem_idx]
         feat_val = ReshapedSrcFeat[fo, \
                                    Adj_s1_idx[row_start + elem_idx] + src_vertex_partition_idx * num_src_vertices_per_partition, \
                                    fi]
-        return tvm.sum(adj_val * feat_val, axis=elem_idx)
+        return te.sum(adj_val * feat_val, axis=elem_idx)
 
-    Intermediate = tvm.compute((num_feat_partitions, num_src_vertex_partitions, num_dst_vertices, feat_len_per_partition), \
+    Intermediate = te.compute((num_feat_partitions, num_src_vertex_partitions, num_dst_vertices, feat_len_per_partition), \
         msgfunc, name='Intermediate')
 
-    k = tvm.reduce_axis((0, num_src_vertex_partitions), name='src_vertex_partition_reduce')
-    ReshapedOut = tvm.compute((num_feat_partitions, num_dst_vertices, feat_len_per_partition),
-        lambda fo, nn, fi: tvm.sum(Intermediate[fo, k, nn, fi], axis=k), \
+    k = te.reduce_axis((0, num_src_vertex_partitions), name='src_vertex_partition_reduce')
+    ReshapedOut = te.compute((num_feat_partitions, num_dst_vertices, feat_len_per_partition),
+        lambda fo, nn, fi: te.sum(Intermediate[fo, k, nn, fi], axis=k), \
         name='ReshapedOut')
 
-    Out = tvm.compute(oshape, \
+    Out = te.compute(oshape, \
         lambda nn, ff: ReshapedOut[ff // feat_len_per_partition, nn, ff % feat_len_per_partition], \
         name='Out')
 
@@ -224,7 +225,7 @@ def vanilla_spmm_dds_x86(SrcFeat,
 
 
 def schedule_vanilla_spmm_dds_x86(Out):
-    s = tvm.create_schedule([Out.op])
+    s = te.create_schedule([Out.op])
 
     ReshapedOut = Out.op.input_tensors[0]
     Intermediate = ReshapedOut.op.input_tensors[0]

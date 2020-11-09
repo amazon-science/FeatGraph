@@ -3,7 +3,8 @@ import scipy.sparse
 import numpy as np
 import time
 import tvm
-from topi.util import get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 from featgraph.module import VanillaSpMMx86, VanillaSpMMcuda
 
@@ -14,7 +15,7 @@ def bench_vanilla_spmm_x86(adj_scipy_csr):
 
     def _bench_vanilla_spmm_x86(num_col_partitions, feat_len, num_feat_partitions):
         vanilla_spmm_module = VanillaSpMMx86(adj_scipy_csr, num_col_partitions)
-        SrcFeat = tvm.placeholder((num_cols, feat_len))
+        SrcFeat = te.placeholder((num_cols, feat_len))
         input_placeholders = [SrcFeat]
         compute_args = {'num_feat_partitions': num_feat_partitions}
         schedule_args = {}
@@ -41,7 +42,7 @@ def bench_vanilla_spmm_cuda(adj_scipy_csr):
 
     def _bench_vanilla_spmm_cuda(feat_len, num_cuda_blocks, num_threads_per_cuda_block):
         vanilla_spmm_module = VanillaSpMMcuda(adj_scipy_csr)
-        SrcFeat = tvm.placeholder((num_cols, feat_len))
+        SrcFeat = te.placeholder((num_cols, feat_len))
         input_placeholders = [SrcFeat]
         compute_args = {}
         schedule_args = {'num_cuda_blocks': num_cuda_blocks,

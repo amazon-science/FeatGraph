@@ -1,6 +1,7 @@
 import numpy as np
 import tvm
-from topi.util import get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 from ..util import util_partition_adj_coo_2d
 from ..op import vanilla_sddmm, schedule_vanilla_sddmm_x86, \
@@ -52,9 +53,9 @@ class SDDMMbase():
             adj_col_indices = adj_scipy_coo.col
         self._adj_row_indices = adj_row_indices
         self._adj_col_indices = adj_col_indices
-        self._adj_row_indices_placeholder = tvm.placeholder(shape=self._adj_row_indices.shape, \
+        self._adj_row_indices_placeholder = te.placeholder(shape=self._adj_row_indices.shape, \
             dtype=str(self._adj_row_indices.dtype), name='adj_row_indices_placeholder')
-        self._adj_col_indices_placeholder = tvm.placeholder(shape=self._adj_col_indices.shape, \
+        self._adj_col_indices_placeholder = te.placeholder(shape=self._adj_col_indices.shape, \
             dtype=str(self._adj_col_indices.dtype), name='adj_col_indices_placeholder')
         self._adj_row_indices_tvm = tvm.nd.array(self._adj_row_indices, ctx=self._ctx)
         self._adj_col_indices_tvm = tvm.nd.array(self._adj_col_indices, ctx=self._ctx)
@@ -74,7 +75,7 @@ class SDDMMbase():
 
         Parameters
         ----------
-        input_placeholders : list of tvm.placeholder
+        input_placeholders : list of te.placeholder
             The required input tvm placeholders other than adj (which has been passed in during self.init)
 
         compute_args : dict
@@ -96,7 +97,7 @@ class SDDMMbase():
 
         Parameters
         ----------
-        input_placeholders : list of tvm.placeholder
+        input_placeholders : list of te.placeholder
             The required input tvm placeholders other than adj (which has been passed in during self.init)
 
         compute_args : dict

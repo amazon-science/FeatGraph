@@ -1,6 +1,7 @@
 import numpy as np
 import tvm
-from topi.util import get_const_tuple
+from tvm import te
+from tvm.topi.utils import get_const_tuple
 
 from ..util import util_convert_csr_to_dds
 from ..op import vanilla_spmm_csr_x86, schedule_vanilla_spmm_csr_x86, \
@@ -42,11 +43,11 @@ class SpMMbase():
             self._adj_s1_pos = adj_s1_pos
             self._adj_s1_idx = adj_s1_idx
             self._adj_vals = adj_vals
-            self._adj_s1_pos_placeholder = tvm.placeholder(shape=self._adj_s1_pos.shape, \
+            self._adj_s1_pos_placeholder = te.placeholder(shape=self._adj_s1_pos.shape, \
                 dtype=str(self._adj_s1_pos.dtype), name='adj_s1_pos_placeholder')
-            self._adj_s1_idx_placeholder = tvm.placeholder(shape=self._adj_s1_idx.shape, \
+            self._adj_s1_idx_placeholder = te.placeholder(shape=self._adj_s1_idx.shape, \
                 dtype=str(self._adj_s1_idx.dtype), name='adj_s1_idx_placeholder')
-            self._adj_vals_placeholder = tvm.placeholder(shape=self._adj_vals.shape, \
+            self._adj_vals_placeholder = te.placeholder(shape=self._adj_vals.shape, \
                 dtype=str(self._adj_vals.dtype), name='adj_vals_placeholder')
             self._adj_s1_pos_tvm = tvm.nd.array(self._adj_s1_pos, ctx=self._ctx)
             self._adj_s1_idx_tvm = tvm.nd.array(self._adj_s1_idx, ctx=self._ctx)
@@ -57,11 +58,11 @@ class SpMMbase():
             self._adj_indptr = adj_scipy_csr.indptr
             self._adj_indices = adj_scipy_csr.indices
             self._adj_vals = adj_scipy_csr.data
-            self._adj_indptr_placeholder = tvm.placeholder(shape=self._adj_indptr.shape, \
+            self._adj_indptr_placeholder = te.placeholder(shape=self._adj_indptr.shape, \
                 dtype=str(self._adj_indptr.dtype), name='adj_indptr_placeholder')
-            self._adj_indices_placeholder = tvm.placeholder(shape=self._adj_indices.shape, \
+            self._adj_indices_placeholder = te.placeholder(shape=self._adj_indices.shape, \
                 dtype=str(self._adj_indices.dtype), name='adj_indices_placeholder')
-            self._adj_vals_placeholder = tvm.placeholder(shape=self._adj_vals.shape, \
+            self._adj_vals_placeholder = te.placeholder(shape=self._adj_vals.shape, \
                 dtype=str(self._adj_vals.dtype), name='adj_vals_placeholder')
             self._adj_indptr_tvm = tvm.nd.array(self._adj_indptr, ctx=self._ctx)
             self._adj_indices_tvm = tvm.nd.array(self._adj_indices, ctx=self._ctx)
@@ -82,7 +83,7 @@ class SpMMbase():
 
         Parameters
         ----------
-        input_placeholders : list of tvm.placeholder
+        input_placeholders : list of te.placeholder
             The required input tvm placeholders other than adj (which has been passed in during self.init)
 
         compute_args : dict
@@ -114,7 +115,7 @@ class SpMMbase():
 
         Parameters
         ----------
-        input_placeholders : list of tvm.placeholder
+        input_placeholders : list of te.placeholder
             The required input tvm placeholders other than adj (which has been passed in during self.init)
 
         compute_args : dict
