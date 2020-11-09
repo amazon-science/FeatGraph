@@ -5,8 +5,7 @@ from tvm.topi.utils import get_const_tuple
 
 from ..util import util_partition_adj_coo_2d
 from ..op import vanilla_sddmm, schedule_vanilla_sddmm_x86, \
-    schedule_vanilla_sddmm_cuda_tree_reduce, schedule_vanilla_sddmm_cuda_single_thread_reduce, \
-    multi_head_dot_product_attention_sddmm, schedule_multi_head_dot_product_attention_sddmm_x86
+    schedule_vanilla_sddmm_cuda_tree_reduce, schedule_vanilla_sddmm_cuda_single_thread_reduce
 
 
 class SDDMMbase():
@@ -165,22 +164,3 @@ class VanillaSDDMMcuda(SDDMMbase):
         self._ctx = tvm.gpu(0)
         self._compute_func = vanilla_sddmm
         self._schedule_func = schedule_vanilla_sddmm_cuda_tree_reduce
-
-
-class MultiHeadSDDMMx86(SDDMMbase):
-    def __init__(self, adj_scipy, num_row_partitions=1, num_col_partitions=1):
-        super(MultiHeadSDDMMx86, self).__init__(adj_scipy, num_row_partitions, num_col_partitions)
-
-    def _register(self):
-        self._target = 'llvm'
-        self._ctx = tvm.cpu(0)
-        self._compute_func = multi_head_dot_product_attention_sddmm
-        self._schedule_func = schedule_multi_head_dot_product_attention_sddmm_x86
-
-
-class MultiHeadSDDMMcuda(SDDMMbase):
-    def __init__(self, adj_scipy):
-        super(MultiHeadSDDMMcuda, self).__init__(adj_scipy, num_row_partitions=1, num_col_partitions=1)
-
-    def _register(self):
-        pass
