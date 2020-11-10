@@ -145,7 +145,7 @@ class SpMMbase():
         Parameters
         ----------
         input_tvm_ndarrays : list of tvm.ndarray
-            The required input tvm ndarrays other than adj (which has been created during self.build)
+            The required input tvm ndarrays other than adj
 
         Returns
         -------
@@ -166,7 +166,7 @@ class SpMMbase():
         Parameters
         ----------
         input_tvm_ndarrays : list of tvm.ndarray
-            The required input tvm ndarrays other than adj (which has been created during self.build)
+            The required input tvm ndarrays other than adj
 
         int : num_runs
             The number of runs
@@ -174,7 +174,7 @@ class SpMMbase():
         Returns
         -------
         tcost: float32
-            The average run time
+            The average run time measured in seconds
         """
         timer = self._func.time_evaluator(self._func.entry_name, ctx=self._ctx, number=num_runs)
         if self._num_col_partitions > 1:

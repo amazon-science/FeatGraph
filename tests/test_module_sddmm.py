@@ -67,7 +67,7 @@ def test_vanilla_sddmm_cuda(adj_scipy_coo):
         np.testing.assert_allclose(out_scipy, out_tvm, rtol=1e-4, atol=1e-4)
 
     _test_vanilla_sddmm_cuda(128, 32)
-    _test_vanilla_sddmm_cuda(128, 64)
+    _test_vanilla_sddmm_cuda(128, 256)
 
 
 if __name__ == '__main__':
