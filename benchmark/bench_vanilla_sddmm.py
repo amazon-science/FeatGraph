@@ -68,7 +68,7 @@ def bench_vanilla_sddmm_cuda(adj_scipy_coo, feat_len):
         tcost = vanilla_sddmm_module.measure_average_time(input_tvm_ndarrays, num_runs)
         print("average time of {} runs: {} ms".format(num_runs, tcost * 1000))
 
-    for num_cuda_blocks in exp_range(64, min(65536, num_edges // 32), 4):
+    for num_cuda_blocks in exp_range(64, min(262144, num_edges // 32), 4):
         print()
         print("num_cuda_blocks:", num_cuda_blocks)
         _bench_vanilla_sddmm_cuda(num_cuda_blocks)
