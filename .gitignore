@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Downloaded datasets for benchmarking
+data/
+
 # C extensions
 *.so
 
