@@ -22,7 +22,7 @@ For more information, refer to our [SC'20 paper](https://www.csl.cornell.edu/~zh
 2. Install FeatGraph.
 
 ```
-git clone git@github.com:dglai/FeatGraph.git
+git clone git@github.com:amazon-research/FeatGraph.git
 ```
 ```
 export PYTHONPATH=/path/to/FeatGraph/python:${PYTHONPATH}
