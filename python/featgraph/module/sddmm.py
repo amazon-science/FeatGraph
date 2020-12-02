@@ -34,7 +34,7 @@ class SDDMMbase():
         assert num_row_partitions >= 1, "num_row_partitions should be larger than or equal to 1"
         assert num_col_partitions >= 1, "num_col_partitions should be larger than or equal to 1"
         self._num_row_partitions = num_row_partitions
-        self._num_col_partitions = num_row_partitions
+        self._num_col_partitions = num_col_partitions
         # To be updated in self.register
         self._target = None
         self._ctx = None
