@@ -19,6 +19,11 @@ For more information, refer to our [SC'20 paper](https://www.csl.cornell.edu/~zh
 
 1. Install TVM ([instructions](https://tvm.apache.org/docs/install/index.html)) and DGL ([instructions](https://docs.dgl.ai/install/index.html)).
 
+TVM v0.7 is required. When you clone TVM:
+```
+git clone -b v0.7 --recursive https://github.com/apache/incubator-tvm tvm
+```
+
 2. Install FeatGraph.
 
 ```

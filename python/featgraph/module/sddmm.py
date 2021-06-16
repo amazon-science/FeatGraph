@@ -1,7 +1,7 @@
 import numpy as np
 import tvm
 from tvm import te
-from tvm.topi.utils import get_const_tuple
+from tvm.topi.util import get_const_tuple
 
 from ..util import util_partition_adj_coo_2d
 from ..op import vanilla_sddmm, schedule_vanilla_sddmm_x86, \
