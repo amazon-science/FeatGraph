@@ -1,7 +1,7 @@
 import numpy as np
 import tvm
 from tvm import te
-from tvm.topi.utils import get_const_tuple
+from tvm.topi.util import get_const_tuple
 
 from ..util import util_convert_csr_to_dds
 from ..op import vanilla_spmm_csr_x86, schedule_vanilla_spmm_csr_x86, \
